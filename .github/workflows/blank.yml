@@ -1,0 +1,107 @@
+name: CI/CD Pipeline - FHIR Camel, SBOM Analysis & OpenShift
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-scan-and-deploy:
+    name: Build, SBOM Audit & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write # Para publicar alertas SARIF en la pestaña Security de GitHub
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # 1. Pruebas unitarias
+      - name: Pruebas unitarias
+        run: mvn clean test
+
+      # 2. Generación del SBOM estandarizado (CycloneDX)
+      - name: Generar SBOM con CycloneDX
+        run: mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom
+
+      - name: Guardar SBOM como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: target/bom.json
+
+      # 3. Análisis de dependencias (SCA) sobre el SBOM con Trivy
+      # Muestra el reporte en consola y falla si detecta vulnerabilidades CRITICAL
+      - name: Escaneo de vulnerabilidades del SBOM (Security Gate)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'target/bom.json'
+          format: 'table'
+          exit-code: '0' # Cambia a '1' si deseas bloquear el pipeline ante CVEs CRITICAL
+          severity: 'CRITICAL,HIGH'
+
+      # 4. Exportar reporte de auditoría SARIF (visible en GitHub Security tab)
+      - name: Generar reporte SARIF para auditoría
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'sbom'
+          scan-ref: 'target/bom.json'
+          format: 'sarif'
+          output: 'trivy-sbom-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Subir resultados a GitHub Security Alerts
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-sbom-results.sarif'
+
+      # 5. Compilación y publicación del contenedor con Jib (Solo corre en la rama main)
+      - name: Construir y publicar imagen en GHCR con Jib
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/camel-demo:${{ github.sha }}"
+          mvn compile jib:build \
+            -DskipTests \
+            "-Djib.to.image=$IMAGE_TAG" \
+            "-Djib.to.tags=latest" \
+            "-Djib.to.auth.username=${{ github.actor }}" \
+            "-Djib.to.auth.password=${{ secrets.GITHUB_TOKEN }}"
+
+      # 6. Despliegue en OpenShift
+      - name: Instalar OpenShift CLI (oc)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          oc: "4"
+
+      - name: Autenticación en OpenShift
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+          openshift_token: ${{ secrets.OPENSHIFT_TOKEN }}
+          insecure_skip_tls_verify: false
+          namespace: ${{ secrets.OPENSHIFT_NAMESPACE }}
+
+      - name: Desplegar y validar Rollout
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/camel-demo:${{ github.sha }}"
+          oc set image deployment/camel-demo camel-demo=$IMAGE_TAG
+          oc rollout status deployment/camel-demo --timeout=120s
