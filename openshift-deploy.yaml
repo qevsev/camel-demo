@@ -1,59 +1,79 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: camel-demo
-  labels:
-    app: camel-demo
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: camel-demo
-  template:
-    metadata:
-      labels:
-        app: camel-demo
-    spec:
-      imagePullSecrets:
-        - name: ghcr-secret
-      containers:
-        - name: camel-demo
-          image: ghcr.io/qevsev/camel-demo:1.0.0
-          imagePullPolicy: Always
-          ports:
-            - containerPort: 8080
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "100m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
-          livenessProbe:
-            httpGet:
-              path: /api/fhir/patient-mock
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 15
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: camel-demo
-spec:
-  selector:
-    app: camel-demo
-  ports:
-    - port: 8080
-      targetPort: 8080
----
-apiVersion: route.openshift.io/v1
-kind: Route
-metadata:
-  name: camel-demo
-spec:
-  to:
-    kind: Service
-    name: camel-demo
-  port:
-    targetPort: 8080
+name: CI/CD Pipeline - FHIR Camel, SBOM Analysis & OpenShift
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+
+jobs:
+  build-scan-and-deploy:
+    name: Build, SBOM Audit & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout del repositorio (OBLIGATORIO como primer paso para tener el pom.xml)
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # 2. Configurar Java 17 con caché de Maven
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # 3. Compilación y pruebas unitarias
+      - name: Pruebas unitarias
+        run: mvn clean test
+
+      # 4. Generación de SBOM estándar (CycloneDX)
+      - name: Generar SBOM con CycloneDX
+        run: mvn org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom
+
+      # 5. Guardar el archivo bom.json en GitHub para auditoría/descarga
+      - name: Guardar SBOM como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: target/bom.json
+
+      # 6. Instalar Trivy CLI para escaneo local de dependencias (SCA)
+      - name: Instalar Trivy CLI
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+      # 7. Quality Gate: Escanear el SBOM y mostrar vulnerabilidades en los logs
+      - name: Escanear SBOM con Trivy
+        run: |
+          trivy sbom target/bom.json \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --exit-code 0
+
+      # 8. Generar reporte SARIF para la pestaña de Security
+      - name: Generar reporte SARIF de vulnerabilidades
+        run: |
+          trivy sbom target/bom.json \
+            --format sarif \
+            --output trivy-sbom-results.sarif \
+            --severity HIGH,CRITICAL
+
+      - name: Subir reporte a GitHub Security Alerts
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-sbom-results.sarif'
+
+      # 9. Construcción y publicación del contenedor en GHCR con Jib (Solo en push a main)
+      - name: Compilar y publicar imagen OCI con Jib
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          IMAGE_TAG="ghcr.io/${{ github.repository_owner }}/camel-demo:${{ github.sha }}"
+          mvn compile jib:build
