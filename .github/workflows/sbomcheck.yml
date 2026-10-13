@@ -57,7 +57,7 @@ jobs:
 
       # 4. Exportar reporte de auditoría SARIF (visible en GitHub Security tab)
       - name: Generar reporte SARIF para auditoría
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'sbom'
           scan-ref: 'target/bom.json'
