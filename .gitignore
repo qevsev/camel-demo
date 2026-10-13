@@ -1,6 +1,12 @@
 # Compiled class file
 *.class
-
+target/
+*.class
+.idea/
+*.iml
+.vscode/
+bin/
+*.tar.gz
 # Log file
 *.log
 

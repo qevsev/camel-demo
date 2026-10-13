@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: camel-demo
+  labels:
+    app: camel-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: camel-demo
+  template:
+    metadata:
+      labels:
+        app: camel-demo
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      containers:
+        - name: camel-demo
+          image: ghcr.io/qevsev/camel-demo:1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /api/fhir/patient-mock
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: camel-demo
+spec:
+  selector:
+    app: camel-demo
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: camel-demo
+spec:
+  to:
+    kind: Service
+    name: camel-demo
+  port:
+    targetPort: 8080

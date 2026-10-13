@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.minsait</groupId>
+  <artifactId>camel-demo</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <name>camel-demo</name>
+  <description>API Camel Demo</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+    <camel.version>4.22.0</camel.version>
+    <hapi.fhir.version>8.12.1</hapi.fhir.version>
+    <hl7.fhir.version>6.10.2</hl7.fhir.version>
+  </properties>
+
+  <!-- Forzar versiones seguras de dependencias transitivas -->
+  <dependencyManagement>
+    <dependencies>
+      <!-- CVE-2022-42889: Commons Text RCE fix -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-text</artifactId>
+        <version>1.12.0</version>
+      </dependency>
+      <!-- CVE-2024-47554: Commons IO DoS fix -->
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.16.1</version>
+      </dependency>
+      <!-- CVE-2025-48924: Commons Lang3 fix -->
+      <dependency>
+        <groupId>org.apache.commons</groupId>
+        <artifactId>commons-lang3</artifactId>
+        <version>3.17.0</version>
+      </dependency>
+      <!-- CVE-2021-0341: OkHttp hostname verification fix -->
+      <dependency>
+        <groupId>com.squareup.okhttp3</groupId>
+        <artifactId>okhttp</artifactId>
+        <version>4.12.0</version>
+      </dependency>
+      <!-- CVE-2023-3635: Okio GzipSource fix -->
+      <dependency>
+        <groupId>com.squareup.okio</groupId>
+        <artifactId>okio</artifactId>
+        <version>3.9.0</version>
+      </dependency>
+      <!-- CVE-2023-2976: Guava fix -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>33.2.1-jre</version>
+      </dependency>
+      <!-- FHIR utilities - sin vulnerabilidades conocidas -->
+      <dependency>
+        <groupId>ca.uhn.hapi.fhir</groupId>
+        <artifactId>org.hl7.fhir.utilities</artifactId>
+        <version>${hl7.fhir.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ca.uhn.hapi.fhir</groupId>
+        <artifactId>org.hl7.fhir.r4</artifactId>
+        <version>${hl7.fhir.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- Apache Camel Core -->
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-core</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-kafka</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-fhir</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+    <!-- Camel Netty HTTP (servidor HTTP) -->
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-netty-http</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+    
+    <!-- Camel Direct -->
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-direct</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+    
+    <!-- Camel Log -->
+    <dependency>
+      <groupId>org.apache.camel</groupId>
+      <artifactId>camel-log</artifactId>
+      <version>${camel.version}</version>
+    </dependency>
+
+    <!-- HAPI FHIR R4 -->
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-base</artifactId>
+      <version>${hapi.fhir.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>ca.uhn.hapi.fhir</groupId>
+      <artifactId>hapi-fhir-structures-r4</artifactId>
+      <version>${hapi.fhir.version}</version>
+    </dependency>
+
+    <!-- Apache HttpClient (para llamadas HTTP) -->
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.5.14</version>
+    </dependency>
+
+    <!-- Jakarta JSON -->
+    <dependency>
+      <groupId>jakarta.json</groupId>
+      <artifactId>jakarta.json-api</artifactId>
+      <version>2.1.1</version>
+    </dependency>
+    <!-- Commons Validator (email validation) -->
+<dependency>
+  <groupId>commons-validator</groupId>
+  <artifactId>commons-validator</artifactId>
+  <version>1.11.0</version>
+</dependency>
+    <dependency>
+      <groupId>org.eclipse.parsson</groupId>
+      <artifactId>parsson</artifactId>
+      <version>1.1.7</version>
+    </dependency>
+
+    <!-- Jackson (para ObjectMapper) -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.22.2</version>
+    </dependency>
+
+    <!-- JWT -->
+    <dependency>
+      <groupId>com.nimbusds</groupId>
+      <artifactId>nimbus-jose-jwt</artifactId>
+      <version>10.9.1</version>
+    </dependency>
+
+    <!-- SLF4J Logging -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.9</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>2.0.9</version>
+      <scope>runtime</scope>
+    </dependency>
+    
+  </dependencies>
+  <build>
+    <plugins>
+    <!-- Generador de SBOM CycloneDX -->
+      <plugin>
+        <groupId>org.cyclonedx</groupId>
+        <artifactId>cyclonedx-maven-plugin</artifactId>
+        <version>2.8.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>makeAggregateBom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Jib para compilar y subir a ghcr.io sin Docker local -->
+      <plugin>
+        <groupId>com.google.cloud.tools</groupId>
+        <artifactId>jib-maven-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <from>
+            <image>eclipse-temurin:17-jre</image>
+          </from>
+          <to>
+            <image>ghcr.io/qevsev/camel-demo:1.0.0</image>
+          </to>
+          <container>
+            <mainClass>com.minsait.App</mainClass>
+            <ports>
+              <port>8080</port>
+            </ports>
+          </container>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.11.0</version>
+        <configuration>
+          <source>17</source>
+          <target>17</target>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <!-- Repositorio Red Hat Maven para versiones parcheadas -->
+  <repositories>
+    <repository>
+      <id>redhat-ga</id>
+      <name>Red Hat GA Repository</name>
+      <url>https://maven.repository.redhat.com/ga/</url>
+    </repository>
+  </repositories>
+</project>
